@@ -5,46 +5,33 @@ jobs:
     name: "[TEST] README example"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "12.x"
-      - run: "npm ci"
-      - run: "npm run build"
-      - uses: ./
-        id: get_latest_release
+
+      - uses: octokit/request-action@v1
+        id: create_deployment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          route: GET /repos/:owner/:repo/releases/latest
-      - run: "echo latest release: '${{ steps.get_latest_release.outputs.data }}'"
-      # Create check run
-      - uses: ./
-        id: create_check_run
-        with:
-          route: POST /repos/:owner/:repo/check-runs
-          mediaType: '{"previews": ["antiope"]}'
-          name: 'Test check run'
-          head_sha: ${{ github.sha }}
-          output: '{"title":"Test check run title","summary": "A summary of the test check run", "images": [{"alt": "Test image", "image_url": "https://octodex.github.com/images/jetpacktocat.png"}]}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          route: POST /repos/:owner/:repo/deployments
+          mediaType: '{"previews": ["ant-man"]}'
+          ref: "${{ github.ref }}"
+          required_contexts: "[]"
+      - run: "echo created deployment: '${{ steps.get_latest_release.outputs.data }}'"
       
       # Parse steps.create_check_run.outputs.data, since it is a string
-      - id: parse_create_check_run
+      - id: parse_create_deployment
         uses: gr2m/get-json-paths-action@v1.x
         with:
-          json: ${{ steps.create_check_run.outputs.data }}
+          json: ${{ steps.create_deployment.outputs.data }}
           id: "id"
           
       # Update check run to completed, succesful status
-      - uses: ./
-        id: update_check_run
+      - uses: octokit/request-action@v1
+        id: update_deployment
         with:
-          route: PATCH /repos/:owner/:repo/check-runs/:check_run_id
-          mediaType: '{"previews": ["antiope"]}'
-          check_run_id: ${{ steps.parse_create_check_run.outputs.id }}
-          conclusion: 'success'
-          status: 'completed'
+          route: POST /repos/:owner/:repo/deployments/:deployment_id/statuses
+          mediaType: '{"previews": ["flash-preview", "ant-man"]}'
+          state: "success"
+          deployment_id: "${{ steps.parse_create_deployment.outputs.id }}"
+          log_url: "https://github.com/imjohnbo/request-action/actions"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
